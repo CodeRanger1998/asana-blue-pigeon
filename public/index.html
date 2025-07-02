@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Asana Task Manager</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 2rem;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      color: #1f7aec;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .section {
+      margin-bottom: 2.5rem;
+      border-top: 1px solid #ccc;
+      padding-top: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      margin-top: 0.3rem;
+      padding: 0.6rem;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      background-color: #1f7aec;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background-color: #125dcc;
+    }
+
+    .login {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid #ddd;
+    }
+
+    .select-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Asana Task Manager</h1>
+
+    <div class="login">
+      <a href="/asana/login"><button>Login with Asana</button></a>
+    </div>
+
+    <div class="section">
+      <div class="select-group">
+        <div>
+          <label for="workspaceSelect">Select Workspace:</label>
+          <select id="workspaceSelect"><option disabled selected>Loading...</option></select>
+        </div>
+        <div>
+          <label for="projectSelect">Select Project:</label>
+          <select id="projectSelect"><option disabled selected>Loading...</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Create Task</h2>
+      <label for="taskName">Task Name:</label>
+      <input id="taskName" placeholder="Task Name" />
+
+      <label for="taskNotes">Task Notes:</label>
+      <textarea id="taskNotes" placeholder="Task Notes"></textarea>
+
+      <label for="assigneeSelect">Select Assignee:</label>
+      <select id="assigneeSelect"><option disabled selected>Loading...</option></select>
+
+      <label for="dueDate">Due Date:</label>
+      <input id="dueDate" type="date" />
+
+      <button onclick="createTask()">Create Task</button>
+    </div>
+
+    <div class="section">
+      <h2>Update Task</h2>
+      <label for="updateTaskId">Select Task to Update:</label>
+      <select id="updateTaskId"><option>Loading...</option></select>
+
+      <label for="updateName">New Name (optional):</label>
+      <input id="updateName" placeholder="New Name" />
+
+      <label for="updateNotes">New Notes (optional):</label>
+      <textarea id="updateNotes" placeholder="New Notes"></textarea>
+
+      <label for="assigneeUpdateSelect">Update Assignee:</label>
+      <select id="assigneeUpdateSelect"><option disabled selected>Loading...</option></select>
+
+      <label for="dueDateUpdate">Update Due Date:</label>
+      <input id="dueDateUpdate" type="date" />
+
+      <button onclick="updateTask()">Update Task</button>
+    </div>
+
+    <div class="section">
+      <h2>Delete Task</h2>
+      <label for="deleteTaskId">Select Task to Delete:</label>
+      <select id="deleteTaskId"><option>Loading...</option></select>
+
+      <button onclick="deleteTask()">Delete Task</button>
+    </div>
+
+    <div class="section">
+      <h2>Get Task Info</h2>
+      <label for="getTaskId">Select Task:</label>
+      <select id="getTaskId"><option>Loading...</option></select>
+
+      <button onclick="getTask()">Get Task Info</button>
+    </div>
+  </div>
+
+  <!-- Your existing <script> goes below this line -->
+  <script>
+    async function getTask() {
+  const id = document.getElementById('getTaskId').value;
+
+  try {
+    const res = await fetch(`/asana/task/${id}`);
+    if (!res.ok) throw new Error('Failed to fetch task');
+
+    const task = await res.json();
+    const details = `
+Name: ${task.name}
+Notes: ${task.notes}
+Assignee: ${task.assignee?.name || 'Unassigned'}
+Completed: ${task.completed ? 'Yes' : 'No'}
+Due On: ${task.due_on || 'Not set'}
+    `;
+
+    alert(details);
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+    async function loadAssignees(workspaceId) {
+  const userRes = await fetch(`/asana/users?workspace=${workspaceId}`);
+  const users = await userRes.json();
+
+  const assignCreate = document.getElementById('assigneeSelect');
+  const assignUpdate = document.getElementById('assigneeUpdateSelect');
+  assignCreate.innerHTML = '';
+  assignUpdate.innerHTML = '';
+
+  users.forEach(user => {
+    const option1 = document.createElement('option');
+    option1.value = user.gid;
+    option1.text = user.name;
+    assignCreate.appendChild(option1);
+
+    const option2 = document.createElement('option');
+    option2.value = user.gid;
+    option2.text = user.name;
+    assignUpdate.appendChild(option2);
+  });
+}
+
+    async function loadProjects(workspaceId) {
+  const projectRes = await fetch(`/asana/projects?workspace=${workspaceId}`);
+  const projects = await projectRes.json();
+
+  const projectSelect = document.getElementById('projectSelect');
+  projectSelect.innerHTML = '';
+
+  projects.forEach(project => {
+    const option = document.createElement('option');
+    option.value = project.gid;
+    option.text = project.name;
+    projectSelect.appendChild(option);
+  });
+}
+  // Load workspaces after page loads
+  async function loadTasks(workspaceId) {
+  const taskRes = await fetch(`/asana/tasks?workspace=${workspaceId}`);
+  const tasks = await taskRes.json();
+
+  const updateSelect = document.getElementById('updateTaskId');
+  const deleteSelect = document.getElementById('deleteTaskId');
+  const getSelect = document.getElementById('getTaskId');
+  getSelect.innerHTML = '';
+  updateSelect.innerHTML = '';
+  deleteSelect.innerHTML = '';
+
+  tasks.forEach(task => {
+    const opt = document.createElement('option');
+    opt.value = task.gid;
+    opt.text = task.name || `Unnamed Task (${task.gid})`;
+    getSelect.appendChild(opt);
+
+    const opt1 = document.createElement('option');
+    opt1.value = task.gid;
+    opt1.text = task.name || `Unnamed Task (${task.gid})`;
+    updateSelect.appendChild(opt1);
+
+    const opt2 = document.createElement('option');
+    opt2.value = task.gid;
+    opt2.text = task.name || `Unnamed Task (${task.gid})`;
+    deleteSelect.appendChild(opt2);
+  });
+}
+
+window.onload = async () => {
+  try {
+    const res = await fetch('/asana/workspaces');
+    const workspaces = await res.json();
+    const wsSelect = document.getElementById('workspaceSelect');
+    wsSelect.innerHTML = '';
+
+    workspaces.forEach(ws => {
+      const option = document.createElement('option');
+      option.value = ws.gid;
+      option.text = ws.name;
+      wsSelect.appendChild(option);
+    });
+
+    wsSelect.onchange = async (e) => {
+  const workspaceId = e.target.value;
+  await loadTasks(workspaceId);
+  await loadProjects(workspaceId);
+  await loadAssignees(workspaceId)
+};
+
+await loadTasks(workspaces[0].gid);
+await loadProjects(workspaces[0].gid);
+await loadAssignees(workspaces[0].gid);
+
+  } catch (err) {
+    console.error(err);
+    alert('Login first to load workspaces and tasks.');
+  }
+};
+
+
+  async function createTask() {
+  const workspace = document.getElementById('workspaceSelect').value;
+  const project = document.getElementById('projectSelect').value;
+  const assignee = document.getElementById('assigneeSelect').value;
+  const name = document.getElementById('taskName').value;
+  const notes = document.getElementById('taskNotes').value;
+  const due_on = document.getElementById('dueDate').value;
+  const res = await fetch('/asana/task', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workspace, name, notes, project, assignee, due_on })
+  });
+
+  const data = await res.json();
+  if (res.ok) {
+    alert('Task created!');
+    document.getElementById('taskName').value = '';
+    document.getElementById('taskNotes').value = '';
+    await loadTasks(workspace);
+  } else {
+    alert('Error: ' + JSON.stringify(data));
+  }
+}
+
+
+
+  async function updateTask() {
+  const id = document.getElementById('updateTaskId').value;
+  const name = document.getElementById('updateName').value;
+  const notes = document.getElementById('updateNotes').value;
+  const assignee = document.getElementById('assigneeUpdateSelect').value;
+  const due_on = document.getElementById('dueDateUpdate').value;
+  const res = await fetch(`/asana/task/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, notes, assignee, due_on })
+  });
+
+  const data = await res.json();
+  alert(JSON.stringify(data));
+}
+
+  async function deleteTask() {
+    const id = document.getElementById('deleteTaskId').value;
+    const res = await fetch(`/asana/task/${id}`, { method: 'DELETE' });
+
+    if (res.status === 204) {
+      alert('Task deleted');
+    } else {
+      const data = await res.json();
+      alert(JSON.stringify(data));
+    }
+  }
+</script>
+</body>
+</html>
